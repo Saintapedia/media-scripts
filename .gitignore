@@ -1,0 +1,8 @@
+venv/
+__pycache__/
+*.pyc
+*.csv
+.env
+.bot_secrets
+*.egg-info/
+dist/
