@@ -15,6 +15,9 @@ Usage:
   # Post all videos to the wiki
   python youtube_to_wiki.py biographies_of_the_saints.csv
 
+  # Override the parent page and AuthorCreator (useful when playlist title != channel name)
+  python youtube_to_wiki.py saints.csv --parent "Wholly Catholic" --author "Wholly Catholic"
+
   # Test with first 5 videos only
   python youtube_to_wiki.py biographies_of_the_saints.csv --limit 5
 
@@ -69,10 +72,10 @@ def sanitize_page_title(title: str) -> str:
     return title.strip()
 
 
-def build_page_content(row: dict) -> str:
+def build_page_content(row: dict, author_override: str = '', saint: str = '') -> str:
     title = row.get('title', '').strip()
     url = row.get('url', '').strip()
-    channel = row.get('channel_title', '').strip()
+    channel = author_override or row.get('channel_title', '').strip()
     length = duration_to_length(row.get('duration', ''))
 
     ytv = f"{{{{YTV|URL={url}|Caption={title}}}}}"
@@ -82,7 +85,7 @@ def build_page_content(row: dict) -> str:
         f'|Name={title}',
         '|Type=Video',
         f'|AuthorCreator={channel}',
-        '|Saint=',
+        f'|Saint={saint}',
         '|SecondSaint=',
         '|SubscriptionRequired=Free',
         f'|Length={length}',
@@ -135,6 +138,14 @@ def main():
         help='Skip ahead to this row number (1 = first video row, for resuming)',
     )
     parser.add_argument(
+        '--parent', default='',
+        help='Override the parent page name (default: channel_title from CSV)',
+    )
+    parser.add_argument(
+        '--author', default='',
+        help='Override AuthorCreator in the SaintMedia template (default: channel_title from CSV)',
+    )
+    parser.add_argument(
         '--quiet', '-q', action='store_true',
         help='Suppress per-page progress output',
     )
@@ -175,14 +186,16 @@ def main():
     for i, row in enumerate(rows, start=args.start_row):
         channel = row.get('channel_title', '').strip()
         title = row.get('title', '').strip()
+        saint = row.get('saint', '').strip()  # populated by filter_saint_videos.py if used
 
         if not title or not channel:
             print(f"  Row {i}: missing title or channel, skipping.", file=sys.stderr)
             skipped += 1
             continue
 
-        page_title = f"{sanitize_page_title(channel)}/{sanitize_page_title(title)}"
-        content = build_page_content(row)
+        parent = sanitize_page_title(args.parent or channel)
+        page_title = f"{parent}/{sanitize_page_title(title)}"
+        content = build_page_content(row, author_override=args.author, saint=saint)
 
         if args.dry_run:
             print(f"\n--- Row {i}: {page_title} ---")
